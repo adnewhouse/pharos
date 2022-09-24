@@ -1,6 +1,4 @@
 #include "camera.hpp"
-#include <unistd.h>
-
 
 Camera::Camera(vector<int> cam_ids) {
     camera_indexes = cam_ids;

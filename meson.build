@@ -5,12 +5,14 @@ project(
 )
 
 src = [
-    'main.cpp'  
+    'main.cpp',
+    'camera.cpp'
 ]
 
 deps = [
     dependency('opencv4'),
-    dependency('apriltag')
+    dependency('apriltag'),
+    dependency('tbb')
 ]
 
 build_args = [
