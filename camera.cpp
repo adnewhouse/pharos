@@ -1,3 +1,5 @@
+// Based off example from https://putuyuwono.wordpress.com/2015/05/29/multi-thread-multi-camera-capture-using-opencv/
+
 #include "camera.hpp"
 
 Camera::Camera(vector<int> cam_ids) {
