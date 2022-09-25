@@ -7,7 +7,7 @@ Camera::Camera(vector<int> cam_ids) {
 void Camera::init_and_start() {
     VideoCapture *cap;
     thread *t;
-    concurrent_queue<Mat> *q;
+    concurrent_queue<CameraFrame> *q;
 
     for (int i = 0; i < camera_indexes.size(); i++) {
         int idx = camera_indexes[i];  
@@ -33,7 +33,7 @@ void Camera::init_and_start() {
         camera_threads.push_back(t);
         
         //Make a queue instance
-        q = new concurrent_queue<Mat>;
+        q = new concurrent_queue<CameraFrame>;
         
         //Put queue to the vector
         frame_queue.push_back(q);
@@ -44,8 +44,12 @@ void Camera::cam_thread(int idx) {
     while(true) {
     	Mat frame;
         if((*cam_caps[idx]).read(frame)) {
-            frame_queue[idx]->push(frame);
+            CameraFrame cf;
+            cf.frame = frame;
+            cf.frame_time = chrono::high_resolution_clock::now();
+            cf.cam_idx = idx;
+            frame_queue[idx]->push(cf);
             frame.release(); //We no longer need access to this, decrement ref counter
-	}
+	    }
     }
 }

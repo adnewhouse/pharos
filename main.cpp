@@ -12,7 +12,7 @@ extern "C" {
 using namespace cv;
 using namespace std;
 
-void process_thread(Camera cam, int idx) {
+void process_thread(Camera& cam, int idx, concurrent_queue<CameraPose*>& pose_queue) {
     apriltag_family_t *tf = tag36h11_create();
     apriltag_detector_t *td = apriltag_detector_create();
     apriltag_detector_add_family(td, tf);
@@ -22,12 +22,14 @@ void process_thread(Camera cam, int idx) {
     int fontface = FONT_HERSHEY_SCRIPT_SIMPLEX;
     double fontscale = 1.0;
 
+    CameraFrame cf;
     Mat img, gray;
     auto prev = chrono::high_resolution_clock::now();
 
     while(1) {
         //Pop frame from queue and check if the frame is valid
-        if (cam.frame_queue[idx]->try_pop(img)) {
+        if (cam.frame_queue[idx]->try_pop(cf)) {
+            img = cf.frame;
             cvtColor(img, gray, COLOR_BGR2GRAY);
 
             image_u8_t im = { .width = gray.cols,
@@ -61,6 +63,7 @@ void process_thread(Camera cam, int idx) {
 
                 apriltag_pose_t pose;
                 double err = estimate_tag_pose(&info, &pose);
+                pose_queue.push(new CameraPose(idx, det->id, err, pose, cf.frame_time));
             }
             apriltag_detections_destroy(detections);
 
@@ -73,8 +76,7 @@ void process_thread(Camera cam, int idx) {
                 fontface, fontscale, Scalar(0xff, 0x99, 0), 2);
 
             cv::imshow("Disp " + to_string(idx), img);
-            if (waitKey(1) >= 0)
-                break;
+            pollKey();
         }
     }
 
@@ -82,16 +84,27 @@ void process_thread(Camera cam, int idx) {
 
 int main() {
    
-    vector<int> capture_index = { 0, 2 };
-    Camera cam(capture_index);
+    vector<int> cam_ids = { 0, 2 };
+    Camera cam(cam_ids);
     cam.init_and_start();
 
-    thread* t0 = new thread(&process_thread, cam, 0);
-    thread* t1 = new thread(&process_thread, cam, 1);
+    vector<thread*> worker_threads;
+    concurrent_queue<CameraPose*> pose_queue;
+    thread* t;
+    for (int i = 0; i < cam_ids.size(); i++) {
+        t = new thread(&process_thread, ref(cam), i, ref(pose_queue));
+        worker_threads.push_back(t);
+    }
 
     while(1) {
-        sleep(1);
+        CameraPose* cf;
+        if (pose_queue.try_pop(cf)) {
+            auto now = chrono::high_resolution_clock::now();
+            auto pose_latency = chrono::duration_cast<chrono::milliseconds>(now - cf->frame_time);
+            cout << "Tag id: " << cf->tag_id << ", \tTag latency (ms):  " << pose_latency.count() << "\t Tag error: " << cf->err << endl;
+        }
     }
+
 
     return 0;
 }
