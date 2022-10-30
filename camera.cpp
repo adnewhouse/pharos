@@ -50,7 +50,8 @@ void Camera::cam_thread(int idx) {
             cf.frame = frame;
             cf.frame_time = chrono::high_resolution_clock::now();
             cf.cam_idx = idx;
-            frame_queue[idx]->push(cf);
+            if(frame_queue[idx]->empty())
+                frame_queue[idx]->push(cf);
             frame.release(); //We no longer need access to this, decrement ref counter
 	    }
     }
